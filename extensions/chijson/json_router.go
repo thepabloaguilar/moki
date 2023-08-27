@@ -2,9 +2,12 @@ package chijson
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
+
+	"github.com/thepabloaguilar/moki/cmd/server/api"
 )
 
 type HandlerFunc[T any] func(body T, r *http.Request) (any, error)
@@ -46,7 +49,22 @@ func Handler[T any](handler HandlerFunc[T], opts ...HandlerOption) http.HandlerF
 		result, err := handler(unmarshalledBody, r)
 		if err != nil {
 			log.Printf("error on request: %s", err)
+
+			var apiErr = api.NewInternalServerError()
+			errors.As(err, &apiErr)
+
+			w.WriteHeader(apiErr.GetCode())
+
+			errorResp, err := json.Marshal(apiErr) //nolint:govet
+			if err != nil {
+				log.Printf("error marshaling api error: %s", err)
+				return
+			}
+
+			w.Write(errorResp) //nolint:errcheck
 			w.WriteHeader(http.StatusInternalServerError)
+
+			return
 		}
 
 		jsonResponse, err := json.Marshal(result)
