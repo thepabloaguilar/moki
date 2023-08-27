@@ -22,6 +22,10 @@ docker-down:
 goimports:
 	@goimports -w $(shell find . -name '*.go' | xargs)
 
+.PHONY: generate
+generate:
+	@go generate ./...
+
 ####################
 #### MIGRATIONS ####
 ####################
@@ -41,7 +45,7 @@ migrate:
 
 .PHONY: test
 test:
-	@go test -v -race -vet=all -count=1 -coverprofile=coverage.out ./...
+	@go test -v -race -vet=all -count=1 -coverprofile=coverage.out -coverpkg=$(go list ./... | grep -v /mocks/) ./...
 
 .PHONY: lint
 lint:

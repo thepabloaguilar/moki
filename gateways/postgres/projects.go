@@ -2,7 +2,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/thepabloaguilar/moki/core/projects"
 
 	"github.com/thepabloaguilar/moki/core/entities"
 )
@@ -48,4 +54,19 @@ func (p *Projects) CreateProject(ctx context.Context, project entities.Project) 
 	}
 
 	return createdProject, nil
+}
+
+func (p *Projects) GetProjectByID(ctx context.Context, projectID uuid.UUID) (entities.Project, error) {
+	query := fmt.Sprintf("SELECT %s FROM projects WHERE id = $1", projectFields)
+
+	project, err := scanProject(p.db.QueryRow(ctx, query, projectID).Scan)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.Project{}, projects.ErrProjectNotFound
+		}
+
+		return entities.Project{}, err
+	}
+
+	return project, nil
 }

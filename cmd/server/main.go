@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/thepabloaguilar/moki/core/http_operations"
+
 	"github.com/rs/zerolog"
 
 	"github.com/thepabloaguilar/moki/cmd/server/api/routes"
@@ -46,9 +48,31 @@ func run(logger zerolog.Logger) error {
 	defer pgPool.Close()
 
 	projectsRepo := postgres.NewProjects(pgPool)
+	httpOperationsRepo := postgres.NewHTTPOperations(pgPool)
+
+	now := func() time.Time {
+		return time.Now().UTC()
+	}
 
 	// Use Cases
-	createProject := projects.NewCreateProject(time.Now, uuid.New, projectsRepo)
+	createProject := projects.NewCreateProject(now, uuid.New, projectsRepo)
+
+	createHTTPOperation := http_operations.NewCreateHTTPOperation(now, uuid.New, &struct {
+		*postgres.Projects
+		*postgres.HTTPOperations
+	}{
+		Projects:       projectsRepo,
+		HTTPOperations: httpOperationsRepo,
+	})
+
+	// Use Cases Collection
+	projectsCollection := &struct {
+		*projects.CreateProjectUseCase
+		*http_operations.CreateHTTPOperationUseCase
+	}{
+		CreateProjectUseCase:       createProject,
+		CreateHTTPOperationUseCase: createHTTPOperation,
+	}
 
 	r.Use(middleware.Heartbeat("/ping"))
 
@@ -60,7 +84,7 @@ func run(logger zerolog.Logger) error {
 		)
 
 		r.Route("/api", func(r chi.Router) {
-			r.Route("/projects", routes.Projects(createProject))
+			routes.Projects(r, projectsCollection)
 		})
 	})
 
