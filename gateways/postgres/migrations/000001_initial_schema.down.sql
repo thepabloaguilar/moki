@@ -1,1 +1,4 @@
+DROP TYPE IF EXISTS http_method;
+DROP TABLE IF EXISTS http_operations;
 DROP TABLE IF EXISTS projects;
+DROP EXTENSION IF EXISTS "uuid-ossp";
