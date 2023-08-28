@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/thepabloaguilar/moki/core/http_operations"
@@ -65,4 +68,27 @@ func (o *HTTPOperations) CreateHTTPOperation(ctx context.Context, operation enti
 	}
 
 	return createOperation, nil
+}
+
+func (o *HTTPOperations) GetHTTPOperationByProjectIDAndHTTPMethodAndRoute(
+	ctx context.Context,
+	projectID uuid.UUID,
+	httpMethod entities.HTTPMethod,
+	route string,
+) (entities.HTTPOperation, error) {
+	query := fmt.Sprintf(
+		`SELECT %s FROM http_operations WHERE project_id = $1 AND http_method = $2 AND route = $3`,
+		httpOperationFields,
+	)
+
+	httpOperation, err := scanHTTPOperation(o.db.QueryRow(ctx, query, projectID, httpMethod, route).Scan)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entities.HTTPOperation{}, http_operations.ErrHTTPOperationNotFound
+		}
+
+		return entities.HTTPOperation{}, err
+	}
+
+	return httpOperation, nil
 }

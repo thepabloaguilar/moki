@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/thepabloaguilar/moki/core/mock"
+
 	"github.com/thepabloaguilar/moki/core/http_operations"
 
 	"github.com/rs/zerolog"
@@ -65,6 +67,14 @@ func run(logger zerolog.Logger) error {
 		HTTPOperations: httpOperationsRepo,
 	})
 
+	executeMock := mock.NewExecuteMock(&struct {
+		*postgres.Projects
+		*postgres.HTTPOperations
+	}{
+		Projects:       projectsRepo,
+		HTTPOperations: httpOperationsRepo,
+	})
+
 	// Use Cases Collection
 	projectsCollection := &struct {
 		*projects.CreateProjectUseCase
@@ -86,6 +96,14 @@ func run(logger zerolog.Logger) error {
 		r.Route("/api", func(r chi.Router) {
 			routes.Projects(r, projectsCollection)
 		})
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(
+			middleware.Logger,
+			middleware.Recoverer,
+		)
+		routes.Mock(r, executeMock)
 	})
 
 	server := http.Server{
