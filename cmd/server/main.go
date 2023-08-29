@@ -10,21 +10,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/thepabloaguilar/moki/cmd/server/api"
+
 	"github.com/thepabloaguilar/moki/core/mock"
 
 	"github.com/thepabloaguilar/moki/core/http_operations"
 
 	"github.com/rs/zerolog"
 
-	"github.com/thepabloaguilar/moki/cmd/server/api/routes"
-
 	"github.com/google/uuid"
 
 	"github.com/thepabloaguilar/moki/core/projects"
 	"github.com/thepabloaguilar/moki/gateways/postgres"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	_ "go.uber.org/automaxprocs"
 )
 
@@ -40,7 +38,6 @@ func main() {
 
 func run(logger zerolog.Logger) error {
 	ctx := context.Background()
-	r := chi.NewRouter()
 
 	// Postgres
 	pgPool, err := postgres.NewConnectionPool(ctx, "postgresql://moki:moki@localhost:5432/moki?sslmode=disable", 1, 2)
@@ -84,35 +81,15 @@ func run(logger zerolog.Logger) error {
 		CreateHTTPOperationUseCase: createHTTPOperation,
 	}
 
-	r.Use(middleware.Heartbeat("/ping"))
-
-	r.Group(func(r chi.Router) {
-		r.Use(
-			middleware.Logger,
-			middleware.Recoverer,
-			middleware.AllowContentType("application/json"),
-		)
-
-		r.Route("/api", func(r chi.Router) {
-			routes.Projects(r, projectsCollection)
-		})
+	server := api.New(api.Config{
+		Address:      ":8000",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		UseCases: api.UseCasesCollection{
+			MockUseCases:    executeMock,
+			ProjectUseCases: projectsCollection,
+		},
 	})
-
-	r.Group(func(r chi.Router) {
-		r.Use(
-			middleware.Logger,
-			middleware.Recoverer,
-		)
-		routes.Mock(r, executeMock)
-	})
-
-	server := http.Server{
-		Addr:              ":8000",
-		Handler:           r,
-		ReadTimeout:       10 * time.Second,
-		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-	}
 
 	ctx, cancel := context.WithCancel(ctx)
 

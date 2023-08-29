@@ -10,12 +10,9 @@ import (
 	"github.com/thepabloaguilar/moki/core/entities"
 	"github.com/thepabloaguilar/moki/core/http_operations"
 
-	"github.com/thepabloaguilar/moki/cmd/server/api"
-
 	"github.com/go-chi/chi/v5"
 
 	"github.com/thepabloaguilar/moki/core/projects"
-	"github.com/thepabloaguilar/moki/extensions/chijson"
 )
 
 type ProjectsUseCases interface {
@@ -24,8 +21,8 @@ type ProjectsUseCases interface {
 }
 
 func Projects(r chi.Router, ucs ProjectsUseCases) {
-	r.Post("/projects", chijson.Handler(createProject(ucs), chijson.WithSuccessStatus(http.StatusCreated)))
-	r.Post("/projects/{projectID}/http-operations", chijson.Handler(createHTTPOperation(ucs), chijson.WithSuccessStatus(http.StatusCreated)))
+	r.Post("/projects", JSONHandler(createProject(ucs), WithSuccessStatus(http.StatusCreated)))
+	r.Post("/projects/{projectID}/http-operations", JSONHandler(createHTTPOperation(ucs), WithSuccessStatus(http.StatusCreated)))
 }
 
 type createProjectRequest struct {
@@ -33,7 +30,7 @@ type createProjectRequest struct {
 	Description string `json:"description"`
 }
 
-func createProject(ucs ProjectsUseCases) chijson.HandlerFunc[createProjectRequest] {
+func createProject(ucs ProjectsUseCases) HandlerFunc[createProjectRequest] {
 	return func(req createProjectRequest, r *http.Request) (any, error) {
 		output, err := ucs.CreateProject(r.Context(), projects.CreateProjectInput{
 			ProjectName:        req.Name,
@@ -41,7 +38,7 @@ func createProject(ucs ProjectsUseCases) chijson.HandlerFunc[createProjectReques
 		})
 		if err != nil {
 			if errors.Is(err, projects.ErrEmptyProjectName) {
-				return nil, api.NewBadRequest(err)
+				return nil, NewBadRequest(err)
 			}
 
 			return nil, err
@@ -59,12 +56,12 @@ type createHTTPOperationRequest struct {
 	ResponseBody   string `json:"response_body"`
 }
 
-func createHTTPOperation(ucs ProjectsUseCases) chijson.HandlerFunc[createHTTPOperationRequest] {
+func createHTTPOperation(ucs ProjectsUseCases) HandlerFunc[createHTTPOperationRequest] {
 	return func(req createHTTPOperationRequest, r *http.Request) (any, error) {
 		projectID := chi.URLParam(r, "projectID")
 		parsedProjectID, err := uuid.Parse(projectID)
 		if err != nil {
-			return nil, api.NewBadRequest(errors.New("invalid project id"))
+			return nil, NewBadRequest(errors.New("invalid project id"))
 		}
 
 		output, err := ucs.CreateHTTPOperation(r.Context(), http_operations.CreateHTTPOperationInput{
@@ -76,12 +73,12 @@ func createHTTPOperation(ucs ProjectsUseCases) chijson.HandlerFunc[createHTTPOpe
 			ResponseBody:   req.ResponseBody,
 		})
 		if err != nil {
-			errsIs := map[error]api.ErrorBuilder{
-				entities.ErrInvalidHTTPMethod:             api.NewBadRequest,
-				entities.ErrUnsupportedMIMEType:           api.NewBadRequest,
-				entities.ErrInvalidHTTPStatusValue:        api.NewBadRequest,
-				projects.ErrProjectNotFound:               api.NewPreconditionFailed,
-				http_operations.ErrOperationAlreadyExists: api.NewPreconditionFailed,
+			errsIs := map[error]ErrorBuilder{
+				entities.ErrInvalidHTTPMethod:             NewBadRequest,
+				entities.ErrUnsupportedMIMEType:           NewBadRequest,
+				entities.ErrInvalidHTTPStatusValue:        NewBadRequest,
+				projects.ErrProjectNotFound:               NewPreconditionFailed,
+				http_operations.ErrOperationAlreadyExists: NewPreconditionFailed,
 			}
 			for errIs, builder := range errsIs {
 				if errors.Is(err, errIs) {

@@ -19,7 +19,7 @@ type MockUseCases interface {
 }
 
 func Mock(r chi.Router, ucs MockUseCases) {
-	r.HandleFunc("/mock/{projectID}/*", handleMock(ucs))
+	r.HandleFunc("/{projectID}/*", handleMock(ucs))
 }
 
 func handleMock(ucs MockUseCases) http.HandlerFunc {

@@ -1,4 +1,4 @@
-package chijson
+package routes
 
 import (
 	"encoding/json"
@@ -6,8 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	"github.com/thepabloaguilar/moki/cmd/server/api"
 )
 
 type HandlerFunc[T any] func(body T, r *http.Request) (any, error)
@@ -18,7 +16,7 @@ type HandlerConfig struct {
 	SuccessStatusCode int
 }
 
-func Handler[T any](handler HandlerFunc[T], opts ...HandlerOption) http.HandlerFunc {
+func JSONHandler[T any](handler HandlerFunc[T], opts ...HandlerOption) http.HandlerFunc {
 	cfg := HandlerConfig{
 		SuccessStatusCode: http.StatusOK,
 	}
@@ -50,7 +48,7 @@ func Handler[T any](handler HandlerFunc[T], opts ...HandlerOption) http.HandlerF
 		if err != nil {
 			log.Printf("error on request: %s", err)
 
-			var apiErr = api.NewInternalServerError()
+			var apiErr = NewInternalServerError()
 			errors.As(err, &apiErr)
 
 			w.WriteHeader(apiErr.GetCode())
@@ -76,5 +74,11 @@ func Handler[T any](handler HandlerFunc[T], opts ...HandlerOption) http.HandlerF
 
 		w.WriteHeader(cfg.SuccessStatusCode)
 		w.Write(jsonResponse) //nolint:errcheck
+	}
+}
+
+func WithSuccessStatus(statusCode int) HandlerOption {
+	return func(cfg *HandlerConfig) {
+		cfg.SuccessStatusCode = statusCode
 	}
 }
